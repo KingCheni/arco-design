@@ -7,6 +7,8 @@ import React, {
   forwardRef,
 } from 'react';
 import { Dayjs, UnitType, QUnitType } from 'dayjs';
+import { IconCalendarClock, IconCalendar } from '@arco-design/web-react/icon';
+import { RuleTriggerType } from 'components/DatePicker/rules';
 import Trigger from '../Trigger';
 import DateInputRange from '../_class/picker/input-range';
 import { RangePickerProps, ShortcutType, ModeType, RangePickerHandle } from './interface';
@@ -25,8 +27,6 @@ import {
   toLocal,
   isValidTimeString,
 } from '../_util/dayjs';
-import IconCalendar from '../../icon/react-icon/IconCalendar';
-import IconCalendarClock from '../../icon/react-icon/IconCalendarClock';
 import RangePickerPanel from './panels/range';
 import Footer from './panels/footer';
 import Shortcuts from './panels/shortcuts';
@@ -508,30 +508,94 @@ const Picker = (baseProps: RangePickerProps, ref) => {
       } else if (selectedLength !== 2) {
         switchFocusedInput();
       } else if (selectedLength === 2) {
-        onConfirmValue(valueShow);
+        onConfirmValue({ date: valueShow });
       }
     } else if (mergedPopupVisible) {
       setOpen(false);
     }
   }
 
+  const [validationError, setValidationError] = useState<string>();
+
   // Confirm and update component value
-  function onConfirmValue(date?: Dayjs[], keepOpen?: boolean) {
+  function onConfirmValue(options?: {
+    date?: Dayjs[];
+    keepOpen?: boolean;
+    ruleTrigger?: RuleTriggerType;
+  }) {
+    const { date, keepOpen, ruleTrigger } = options ?? {};
     const confirmValue = date || panelValue;
     if (!confirmValue || !confirmValue[0] || !confirmValue[1]) {
       return;
     }
     const sortedValues = getSortedDayjsArray(confirmValue);
+
+    // 在值变化时进行 change 类型的校验
+    const validationResult = validateRangeValue(sortedValues, ruleTrigger ?? 'change');
+    if (!validationResult.valid) {
+      setValidationError(validationResult.message);
+      return;
+    }
+    setValidationError(undefined);
+
     setValue(sortedValues);
     onHandleChange(sortedValues);
+
     if (triggerElement !== null && !keepOpen) {
       setOpen(false);
     }
   }
 
+  // 校验日期范围是否符合规则
+  function validateRangeValue(
+    value: Dayjs[],
+    trigger?: RuleTriggerType
+  ): { valid: boolean; message?: string } {
+    if (!props.rules || !Array.isArray(props.rules)) {
+      return { valid: true };
+    }
+    // rule.trigger 默认为 'change'
+    const rules = props.rules?.map((rule) => ({
+      ...rule,
+      trigger: rule.trigger || 'change',
+    }));
+    for (const rule of rules) {
+      // 如果指定了触发时机，则只执行对应的规则
+      if (trigger && rule.trigger && rule.trigger !== trigger) {
+        continue;
+      }
+
+      let validResult = true;
+      let customMessage;
+
+      // 支持回调函数形式的校验
+      const validatorResult = rule.validator(value, (error) => {
+        validResult = !error;
+        customMessage = error;
+      });
+
+      // 如果直接返回布尔值，使用该结果
+      if (typeof validatorResult === 'boolean') {
+        validResult = validatorResult;
+      }
+
+      if (!validResult) {
+        return { valid: false, message: customMessage || rule.message };
+      }
+    }
+
+    return { valid: true };
+  }
+
   // Callback when click the confirm button
   function onClickConfirmBtn() {
-    onConfirmValue();
+    const validationResult = validateRangeValue(panelValue, 'confirm');
+    if (!validationResult.valid) {
+      setValidationError(validationResult.message);
+      return;
+    }
+    setValidationError(undefined);
+    onConfirmValue({ ruleTrigger: 'confirm' });
     const localePanelValue = panelValue.map((v) => getLocaleDayjsValue(v, locale.dayjsLocale));
     onOk &&
       onOk(
@@ -601,7 +665,7 @@ const Picker = (baseProps: RangePickerProps, ref) => {
       if (selectedLength === 0 || (selectedLength === 2 && !isHalfAvailable)) {
         customTriggerElement ? setFocusedInputIndex(1) : switchFocusedInput(true);
       } else if (!showTime) {
-        onConfirmValue(newValueShow);
+        onConfirmValue({ date: newValueShow });
       }
     } else if (newSelectedLength <= 1) {
       switchFocusedInput(true);
@@ -609,12 +673,12 @@ const Picker = (baseProps: RangePickerProps, ref) => {
       firstRange.current = false;
       switchFocusedInput(true);
       if (!showTime && !isOutOfRange) {
-        onConfirmValue(newValueShow, true);
+        onConfirmValue({ date: newValueShow, keepOpen: true });
       }
     } else {
       firstRange.current = false;
       if (!showTime && !isOutOfRange) {
-        onConfirmValue(newValueShow);
+        onConfirmValue({ date: newValueShow });
       }
     }
   }
@@ -720,7 +784,7 @@ const Picker = (baseProps: RangePickerProps, ref) => {
     onSelectShortcut && onSelectShortcut(shortcut);
     if (isValidShortcut(shortcut)) {
       const time = getDayjsValue(shortcut.value(), format, utcOffset, timezone) as Dayjs[];
-      onConfirmValue(time);
+      onConfirmValue({ date: time });
     }
   }
 
@@ -830,6 +894,7 @@ const Picker = (baseProps: RangePickerProps, ref) => {
             shortcutsPlacementLeft={shortcutsPlacementLeft}
             onClickSelectTimeBtn={onClickSelectTimeBtn}
             isTimePanel={isTimePanel}
+            validationError={validationError}
           />
         )}
       </>

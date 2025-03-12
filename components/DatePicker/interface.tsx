@@ -4,6 +4,11 @@ import { TimePickerProps } from '../TimePicker/interface';
 import { TriggerProps } from '../Trigger/index';
 import { Omit } from '../_util/type';
 
+/**
+ * @title RangePicker
+ */
+import { RangePickerRules } from './rules';
+
 export type CalendarValue = number | string | Date | Dayjs;
 
 export type ShortcutType = {
@@ -403,15 +408,17 @@ export type TimePickerRangeProps = Omit<TimePickerProps, 'defaultValue'> & {
   defaultValue?: CalendarValue[];
 };
 
-/**
- * @title RangePicker
- */
 export interface BaseRangePickerProps {
   /**
    * @zh 是否禁用
    * @en Whether to disable input box
    */
   disabled?: boolean | boolean[];
+  /**
+   * @zh 校验规则
+   * @en Validation rules
+   */
+  rules?: RangePickerRules;
   /**
    * @zh 展示日期的格式，参考[dayjs](https://github.com/iamkun/dayjs)
    * @en Date format, refer to [dayjs](https://github.com/iamkun/dayjs)

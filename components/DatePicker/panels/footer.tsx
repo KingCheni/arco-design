@@ -22,6 +22,7 @@ export default function Footer(props) {
     extra,
     mode,
     shortcutsPlacementLeft,
+    validationError,
   } = props;
 
   const hasShortcuts = isArray(shortcuts) && shortcuts.length > 0;
@@ -30,7 +31,19 @@ export default function Footer(props) {
 
   return (
     <div className={`${prefixCls}-footer`}>
-      {extra && <div className={`${prefixCls}-footer-extra-wrapper`}>{extra}</div>}
+      {(extra || validationError) && (
+        <div className={`${prefixCls}-footer-extra-wrapper`}>
+          {validationError && (
+            <div
+              className={`${prefixCls}-footer-error-msg`}
+              style={{ color: 'var(--color-danger-6)' }}
+            >
+              {validationError}
+            </div>
+          )}
+          {extra}
+        </div>
+      )}
       {!showTime && showNowBtn && mode === 'date' && (
         <div className={`${prefixCls}-footer-now-wrapper`}>
           <Link onClick={onSelectNow}>{DATEPICKER_LOCALE.today}</Link>
